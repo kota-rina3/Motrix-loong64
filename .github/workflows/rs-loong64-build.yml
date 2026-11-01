@@ -50,7 +50,8 @@ jobs:
             echo "smoke test: $BIN"
             "$BIN" --version || "$BIN" --help || echo "（无 CLI 参数，跳过运行测试）"
 
-            cd .. && cd /native-host
+            cd ../..
+            cd packages/native-host
 
             # 4. 编译（release 模式）
             cargo build --release --locked || cargo build --release

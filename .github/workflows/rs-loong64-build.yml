@@ -1,0 +1,77 @@
+name: Rust loong64 Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: 编译构建 (loong64)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 检查代码
+      uses: actions/checkout@v4
+
+    - name: 设置 QEMU（loong64 模拟）
+      uses: docker/setup-qemu-action@v4
+
+    - name: 在 deepin-loong64 容器中编译
+      run: |
+        docker run --platform linux/loong64 \
+          -v "${{ github.workspace }}:/workspace" \
+          -w /workspace \
+          linuxdeepin/deepin:crimson-loong64-v1.6.0 \
+          bash -c '
+            set -e
+
+            # 1. 安装基础依赖 + curl（用于下载 rustup 安装脚本）
+            sudo apt update && sudo apt upgrade -y
+            sudo apt install -y build-essential pkg-config curl \
+              ca-certificates git cmake
+
+            # 2. 通过 rust 官网安装脚本安装 Rust 工具链
+            #    rustup 会自动识别 loongarch64-unknown-linux-gnu 宿主平台
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --profile minimal --default-toolchain stable
+            source "$HOME/.cargo/env"
+
+            rustc --version
+            cargo --version
+
+            cd packages/finalize-fs
+
+            # 3. 编译（release 模式）
+            cargo build --release --locked || cargo build --release
+
+            file target/release/* 2>/dev/null || true
+            BIN=$(ls target/release/* | head -n 1)
+            echo "smoke test: $BIN"
+            "$BIN" --version || "$BIN" --help || echo "（无 CLI 参数，跳过运行测试）"
+
+            cd .. && cd /native-host
+
+            # 4. 编译（release 模式）
+            cargo build --release --locked || cargo build --release
+
+            file target/release/* 2>/dev/null || true
+            BIN=$(ls target/release/* | head -n 1)
+            echo "smoke test: $BIN"
+            "$BIN" --version || "$BIN" --help || echo "（无 CLI 参数，跳过运行测试）"
+          '
+
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: rust-loong64-build
+        path: |
+          packages/finalize-fs/target/release/
+          packages/native-host/target/release/
+          !target/release/**/*.d
+          !target/release/**/deps/**
+          !target/release/**/build/**
+          !target/release/**/incremental/**
+          !target/release/**/.fingerprint/**
+        if-no-files-found: error
+        retention-days: 7

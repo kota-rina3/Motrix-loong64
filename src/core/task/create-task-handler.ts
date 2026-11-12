@@ -1009,6 +1009,12 @@ async function handleCreateTaskUnderAdmission(
     // already canonical fields on the instance; modifier VALUES remain
     // engine-call-only so credentials never enter motrix.db.
     assertPluginPolicyCurrent?.()
+    if (
+      params.uris.length === 1 &&
+      (await deps.adapter.supportsDirectTaskRetry?.())
+    ) {
+      params.retainRequestContext = true
+    }
     directReplay = buildDirectReplayRecipe(
       params,
       ambientMetadataProfile === null
@@ -1185,8 +1191,8 @@ async function handleCreateTaskUnderAdmission(
     infoHash: btInfoHash,
     // For BT/Magnet, seed bt.isPrivate at creation time so SessionManager.save()
     // persists is_private to db. Other bt fields are filled in by the next poll
-    // cycle via translateBtExtension; mergeTask preserves isPrivate via the
-    // saved.isPrivate injection wired in Task 4.
+    // cycle via translateBtExtension; mergeEngineTask preserves this metadata
+    // while merging live engine metrics.
     bt: isBtLike
       ? makeDefaultBtExtension({
           isPrivate: isPrivateFromTorrent,

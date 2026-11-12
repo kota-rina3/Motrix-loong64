@@ -9,6 +9,7 @@ import type { DownloadTask } from '@shared/types/task'
 import {
   TaskInstancePhase,
   TaskStatus,
+  TaskType,
   TransitionPhase,
 } from '@shared/types/task'
 import {
@@ -39,16 +40,18 @@ import {
   shouldPrioritizeBtPreviewPiecesFromMetadata,
 } from '../bt-storage-layout'
 import { settleBtUpload } from '../bt-upload-settlement'
+import { updateDirectReplayRetention } from '../direct-replay-recipe'
 import {
   canMirrorAria2MetadataHeaders,
   type DirectResourceProxyOptionsProvider,
   DirectResourceValidatorService,
 } from '../direct-resource-validator'
+import { directTaskRetryInput } from '../direct-task-retry'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { commitTaskUpdate, getTaskOrWarn, type TaskActionDeps } from './shared'
 
 export interface ReAddTaskDeps extends TaskActionDeps {
-  recoverFinalization?: (taskId: string) => Promise<void>
+  recoverFinalization?: (taskId: string, sha256?: string) => Promise<void>
   runTaskMutation: NonNullable<TaskActionDeps['runTaskMutation']>
   persistTask: NonNullable<TaskActionDeps['persistTask']>
   torrentMetaStore: TorrentMetaStore
@@ -316,6 +319,11 @@ async function buildDirectReAddParams(
 
   return {
     uris: sources.map((source) => source.requestUrl),
+    ...(sources.length === 1 &&
+    /^https?:/i.test(sources[0].requestUrl) &&
+    (await adapter.supportsDirectTaskRetry?.())
+      ? { retainRequestContext: true }
+      : {}),
     saveDir: plan.saveDir,
     filename: plan.filename,
     connections: recipe.connections,
@@ -493,10 +501,20 @@ async function handleFailedEngineAdd(
  */
 export async function reAddTask(
   taskId: string,
-  deps: ReAddTaskDeps
+  deps: ReAddTaskDeps,
+  sha256?: string
 ): Promise<void> {
   const task = deps.taskManager.getById(taskId)
   if (task) assertLegacyTaskNotRecreated(task)
+  if (
+    sha256 &&
+    (task?.type !== TaskType.Http ||
+      task.transitionPhase !== TransitionPhase.Renaming)
+  )
+    throw new AppError(
+      ErrorCode.TaskNotRetryable,
+      'no HTTP source is awaiting verification'
+    )
   if (
     task &&
     (task.transitionPhase === TransitionPhase.Renaming ||
@@ -508,7 +526,9 @@ export async function reAddTask(
         'Finalize recovery is unavailable'
       )
     }
-    await deps.recoverFinalization(taskId)
+    await deps.authorizeTaskWrite?.(task)
+    if (sha256) await deps.recoverFinalization(taskId, sha256)
+    else await deps.recoverFinalization(taskId)
     return
   }
   const run = (
@@ -551,6 +571,44 @@ async function reAddTaskUnderMutation(
 ): Promise<void> {
   const task = getTaskOrWarn(deps, taskId, 'reAddTask')
   if (!task) return
+  await deps.authorizeTaskWrite?.(task)
+  const nativeInput = directTaskRetryInput(task)
+  if (
+    nativeInput &&
+    deps.adapter.canRetryDirectTask &&
+    deps.adapter.retryDirectTask &&
+    (await deps.adapter.canRetryDirectTask(nativeInput))
+  ) {
+    assertProxyCurrent?.()
+    // The engine owns the original request, cookies, checkpoint and response
+    // identity. It commits before queueing and preserves the GID, so a lost
+    // response never requires deleting or guessing a replacement owner.
+    await deps.adapter.retryDirectTask(nativeInput)
+    const current = deps.taskManager.getById(taskId)
+    if (
+      !current ||
+      current.engineTaskId !== task.engineTaskId ||
+      current.status !== TaskStatus.Error ||
+      current.updatedAt !== task.updatedAt
+    )
+      return
+    const now = Date.now()
+    await commitTaskUpdate(
+      current,
+      {
+        ...current,
+        ...applyTerminalTransition(current, TaskStatus.Downloading, {}, now),
+        instances: current.instances.map((instance) =>
+          instance.gid === current.engineTaskId
+            ? { ...instance, status: TaskStatus.Downloading, updatedAt: now }
+            : instance
+        ),
+        updatedAt: now,
+      },
+      deps
+    )
+    return
+  }
   if (canRetry(task)) {
     // Retry additionally requires the engine dispatch to be reconstructable
     // from the task record (canReseed already implies this for its own path,
@@ -592,6 +650,16 @@ async function reAddTaskUnderMutation(
       )
   await bestEffortRemove(deps.adapter, task.engineTaskId, deps.log)
   const retired = structuredClone(task)
+  if (directParams) {
+    for (const instance of retired.instances) {
+      if (instance.phase === TaskInstancePhase.HttpDownload) {
+        instance.payload = updateDirectReplayRetention(
+          instance.payload,
+          directParams.retainRequestContext === true
+        )
+      }
+    }
+  }
   if (torrentLike) {
     let upload = 0
     try {

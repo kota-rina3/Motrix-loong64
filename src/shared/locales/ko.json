@@ -4,7 +4,9 @@
     "help": "이 서버에는 관리자 토큰이 필요합니다. 호스트에서 MOTRIX_OPERATOR_TOKEN을 설정하거나 <dataDir>/operator-token에서 토큰을 읽어 아래에 붙여넣으세요.",
     "placeholder": "관리자 토큰",
     "error": "관리자 토큰이 올바르지 않습니다. 호스트의 MOTRIX_OPERATOR_TOKEN 또는 <dataDir>/operator-token을 확인하고 다시 시도하세요.",
-    "submit": "잠금 해제"
+    "submit": "잠금 해제",
+    "nasSessionExpired": "NAS 관리자 세션을 확인할 수 없습니다. NAS 바탕 화면에서 Motrix를 여세요.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
     "help": "사용법:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\n이 명령은 컨테이너 루프백을 통해 실행 중인 Motrix 서버와만 통신합니다.",
@@ -330,7 +332,7 @@
         "loading": "활동을 불러오는 중",
         "unavailable": "활동을 사용할 수 없음",
         "retry": "다시 시도",
-        "stale": "최신 활동 정보가 아닐 수 있습니다",
+        "refreshFailed": "새로고침 실패",
         "coverageDegraded": "{{time}} 이후의 활동 기록이 불완전할 수 있습니다",
         "rangeSummary": "{{start}}~{{end}}, {{weeks}}주간의 다운로드 활동",
         "completedIntensity": "색상의 진하기는 완료된 다운로드 수를 나타냅니다",
@@ -932,7 +934,11 @@
         "redownloadStarted": "Re-download started",
         "retryDialogTitle": "다운로드 재시도",
         "retryDialogDescription": "{{name}}의 요청 매개변수를 편집하여 새 다운로드를 시작하세요. 실패한 작업과 부분 파일은 유지됩니다.",
-        "retryDialogProgress": "{{total}}개 중 {{current}}번째 다운로드"
+        "retryDialogProgress": "{{total}}개 중 {{current}}번째 다운로드",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "titleCount": "{{shown}}개 표시 · 전체 {{total}}개",
       "type": {
@@ -1110,7 +1116,7 @@
         "doc": "문서"
       },
       "errors": {
-        "headerNameRequired": "헤더 이름을 입력하거나 이 헤더를 제거하세요.",
+        "headerNameRequired": "값을 입력한 헤더에는 이름이 필요합니다.",
         "urlsRequired": "URL을 하나 이상 입력하세요",
         "saveDirRequired": "저장 폴더를 지정하세요",
         "noFilesSelected": "파일을 하나 이상 선택하세요",
@@ -1121,7 +1127,8 @@
         "failed": "{{name}} 작업을 자동으로 시작하지 못했습니다. 작업 상세 정보에서 파일을 선택하고 다시 시도하세요."
       },
       "undoCorrection": "URL 수정 실행 취소",
-      "submissionUnconfirmed": "결과가 확인되지 않았습니다. 다시 시도하면 새 작업을 만들기 전에 원래 요청의 처리 결과를 확인합니다."
+      "submissionUnconfirmed": "결과가 확인되지 않았습니다. 다시 시도하면 새 작업을 만들기 전에 원래 요청의 처리 결과를 확인합니다.",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "피어: {{count}}",
@@ -1174,6 +1181,7 @@
         "recoveryFailed": "다운로드를 복구하지 못했습니다: {{cause}}",
         "recoveryOutputConflict": "임시 파일과 최종 파일이 모두 존재하여 직접 확인할 수 있도록 둘 다 보존했습니다",
         "filesMissing": "앱 재시작 후 파일을 찾을 수 없습니다",
+        "sourceHash": "배포자의 SHA-256",
         "renameFileFailed": "파일 이름을 변경하지 못했습니다: {{cause}}",
         "renameDirFailed": "폴더 이름을 변경하지 못했습니다: {{cause}}",
         "pluginChainAborted": "플러그인 처리 체인이 중단되었습니다: {{cause}}",
@@ -1275,6 +1283,10 @@
       "integration": {
         "title": "연동",
         "desc": "브라우저 확장 프로그램, CLI, 시스템 연동"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1860,6 +1872,12 @@
       "hideSecret": "비밀 값 숨기기"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "기본 앱",
         "protocolMagnet": "Motrix로 마그넷 링크 열기",
@@ -1917,6 +1935,8 @@
           "store": "설치",
           "development": "개발"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "연결된 확장 프로그램",
         "pairedEmpty": "아직 연결된 확장 프로그램이 없습니다.",
         "profile": "브라우저 프로필 {{number}}",
@@ -1948,7 +1968,10 @@
             "attested": "검증된 확장 프로그램",
             "unverified": "검증되지 않은 확장 프로그램"
           },
-          "identityUnverifiedWarning": "이 확장 프로그램의 신원을 확인하지 못했습니다. 신뢰하는 경우에만 계속하세요."
+          "identityUnverifiedWarning": "이 확장 프로그램의 신원을 확인하지 못했습니다. 신뢰하는 경우에만 계속하세요.",
+          "claim": "현재 계정으로 페어링",
+          "claimDesc": "확장 프로그램은 이 계정의 권한을 사용합니다. 다음으로 확장 프로그램에 페어링 코드를 입력하여 완료하세요.",
+          "account": "현재 계정: {{name}}"
         },
         "pairUnavailable": "이 페어링 요청은 더 이상 대기 상태가 아닙니다. 브라우저 확장 프로그램에서 페어링을 다시 시도하세요.",
         "trustedExtensions": "신뢰하는 확장 프로그램",
@@ -2127,7 +2150,8 @@
           "missing": "찾을 수 없음",
           "untrusted": "macOS에서 차단됨",
           "unconfigured": "설정되지 않음",
-          "version_mismatch": "지원되지 않음"
+          "version_mismatch": "지원되지 않음",
+          "verificationUnavailable": "검증할 수 없음"
         },
         "stagingMB": "임시 파일 제한(MB)",
         "stagingMBDesc": "플러그인과 작업별 중간 파일에 사용할 공간입니다.",
@@ -2239,6 +2263,37 @@
       "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
       "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
       "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -3437,5 +3492,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "토렌트 만들기",
+    "source": "공유할 콘텐츠",
+    "options": "토렌트 옵션",
+    "trackers": "트래커",
+    "trackersPlaceholder": "줄마다 announce URL 하나씩",
+    "webSeeds": "웹 시드",
+    "webSeedsPlaceholder": "줄마다 HTTP(S) URL 하나씩 (선택)",
+    "comment": "메모",
+    "private": "비공개 토렌트",
+    "privateDesc": "DHT와 PEX를 비활성화하고 트래커로만 배포합니다.",
+    "pieceLength": "조각 크기",
+    "pieceAuto": "자동",
+    "hashing": "해시 계산 중…",
+    "resultName": "이름",
+    "resultSize": "크기",
+    "resultInfoHash": "Info 해시",
+    "saveFile": ".torrent 저장",
+    "create": "만들기",
+    "savedToast": "토렌트를 {{path}} 에 저장했습니다",
+    "createFailed": "토렌트를 만들 수 없습니다",
+    "saveFailed": "토렌트 파일을 저장할 수 없습니다",
+    "seedAfter": "저장 후 시딩 시작",
+    "seedFailed": "시딩 작업을 시작할 수 없습니다.",
+    "seedSubmitted": "시딩 작업을 요청했습니다.",
+    "invalidOptions": "목록마다 유효한 URL을 최대 {{limit}}개 입력할 수 있습니다. 비공개 토렌트에는 트래커가 필요합니다.",
+    "menuLabel": "토렌트 파일 만들기…",
+    "downloadRequested": "다운로드 요청됨: {{path}}"
   }
 }

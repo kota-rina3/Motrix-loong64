@@ -401,7 +401,9 @@
     "help": "Acest server necesită tokenul operatorului. Pe gazdă, setează MOTRIX_OPERATOR_TOKEN sau citește tokenul din <dataDir>/operator-token, apoi lipește-l mai jos.",
     "placeholder": "Token operator",
     "submit": "Deblochează",
-    "title": "Deblochează Motrix"
+    "title": "Deblochează Motrix",
+    "nasSessionExpired": "Sesiunea de administrator NAS nu poate fi verificată. Deschideți Motrix de pe desktopul NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "panel": {
     "completed": {
@@ -431,7 +433,7 @@
         "more": "Mai multe",
         "rangeSummary": "Activitate de descărcare de la {{start}} la {{end}}; număr de săptămâni: {{weeks}}",
         "retry": "Încearcă din nou",
-        "stale": "Activitatea poate fi învechită",
+        "refreshFailed": "Reîmprospătarea a eșuat",
         "title": "Activitate",
         "tooltip": {
           "completed": "Finalizate: {{count}}",
@@ -908,7 +910,11 @@
         "redownloadStarted": "Re-download started",
         "retryDialogTitle": "Reîncearcă descărcarea",
         "retryDialogDescription": "Editează parametrii cererii pentru {{name}} pentru a începe o descărcare nouă. Sarcina eșuată și fișierul parțial vor fi păstrate.",
-        "retryDialogProgress": "Descărcarea {{current}} din {{total}}"
+        "retryDialogProgress": "Descărcarea {{current}} din {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "column": {
         "connections": "Conexiuni",
@@ -2060,6 +2066,10 @@
       "network": {
         "desc": "Proxy, DNS și NAT/UPnP",
         "title": "Rețea"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "common": {
@@ -2331,6 +2341,12 @@
       "warnBeforeQuitDesc": "Cere confirmare la ieșire dacă există descărcări active."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Înregistrează acest AppImage Motrix în mediul desktop, astfel încât browserele și linkurile magnet să îi poată trimite descărcări.",
         "enable": "Activează integrarea desktop",
@@ -2415,7 +2431,10 @@
           "identityUnverifiedWarning": "Identitatea acestei extensii nu a putut fi verificată. Continuă doar dacă ai încredere în ea.",
           "pairCode": "Cod de asociere",
           "pairCodeHint": "Introdu acest cod în extensie",
-          "title": "O extensie {{browser}} dorește să se conecteze la Motrix"
+          "title": "O extensie {{browser}} dorește să se conecteze la Motrix",
+          "claim": "Asociază cu contul curent",
+          "claimDesc": "Extensia va folosi permisiunile acestui cont. Apoi introdu codul în extensie pentru a finaliza asocierea.",
+          "account": "Cont curent: {{name}}"
         },
         "pairUnavailable": "Această cerere de asociere nu mai este în așteptare — reîncearcă asocierea din extensia de browser.",
         "pairedEmpty": "Încă nu există extensii conectate.",
@@ -2423,6 +2442,8 @@
         "connected": "Conectat",
         "disconnected": "Neconectat",
         "revokeAll": "Deconectează toate",
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Extensii conectate",
         "pairingStateDegraded": {
           "description": "Motrix nu a putut actualiza în siguranță înregistrările extensiilor asociate. Sesiunile existente ale extensiilor sunt închise, iar accesul nou este blocat pentru această rulare. Repornește Motrix pentru a reîncerca repararea; nu te baza pe lista de mai jos până când dispare acest mesaj.",
@@ -2610,7 +2631,8 @@
           "missing": "Negăsit",
           "unconfigured": "Nesetat",
           "untrusted": "Blocat de macOS",
-          "version_mismatch": "Neacceptat"
+          "version_mismatch": "Neacceptat",
+          "verificationUnavailable": "Verificare indisponibilă"
         },
         "title": "Instrumente media",
         "validation": {
@@ -2778,6 +2800,37 @@
       "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
       "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
       "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "task": {
@@ -2817,7 +2870,7 @@
         "title": "Acest torrent există deja"
       },
       "errors": {
-        "headerNameRequired": "Introduceți un nume pentru antet sau eliminați acest antet.",
+        "headerNameRequired": "Introduceți un nume pentru fiecare antet care are o valoare.",
         "missingSource": "Este necesar un fișier torrent sau un link magnet",
         "noFilesSelected": "Selectează cel puțin un fișier",
         "saveDirRequired": "Este necesar un dosar de salvare",
@@ -2893,7 +2946,8 @@
       "urlsLabel": "URL-uri",
       "urlsWithInvalid": "Valide: {{valid}}, nevalide: {{invalid}}",
       "userAgent": "User-Agent",
-      "validUrlCount": "Valide: {{count}}"
+      "validUrlCount": "Valide: {{count}}",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Parteneri: {{count}}",
@@ -2910,6 +2964,7 @@
         "recoveryFailed": "Descărcarea nu a putut fi recuperată: {{cause}}",
         "recoveryOutputConflict": "Există atât fișierul temporar, cât și cel final; ambele au fost păstrate pentru verificare manuală",
         "renameDirFailed": "Dosarul nu a putut fi redenumit: {{cause}}",
+        "sourceHash": "SHA-256 de la editor",
         "renameFileFailed": "Fișierul nu a putut fi redenumit: {{cause}}"
       },
       "hint": {
@@ -3485,5 +3540,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Creează torrent",
+    "source": "Conținut de partajat",
+    "options": "Opțiuni torrent",
+    "trackers": "Trackere",
+    "trackersPlaceholder": "Câte un URL announce pe linie",
+    "webSeeds": "Web seed-uri",
+    "webSeedsPlaceholder": "Câte un URL HTTP(S) pe linie (opțional)",
+    "comment": "Comentariu",
+    "private": "Torrent privat",
+    "privateDesc": "Dezactivează DHT și schimbul între peers; distribuire doar prin trackere.",
+    "pieceLength": "Mărimea piesei",
+    "pieceAuto": "Automat",
+    "hashing": "Se calculează amprentele…",
+    "resultName": "Nume",
+    "resultSize": "Dimensiune",
+    "resultInfoHash": "Hash info",
+    "saveFile": "Salvează .torrent",
+    "create": "Creează",
+    "savedToast": "Torrentul a fost salvat în {{path}}",
+    "createFailed": "Torrentul nu a putut fi creat",
+    "saveFailed": "Fișierul torrent nu a putut fi salvat",
+    "seedAfter": "Începe distribuirea după salvare",
+    "seedFailed": "Distribuirea nu a putut porni.",
+    "seedSubmitted": "Sarcina de distribuire a fost trimisă.",
+    "invalidOptions": "Fiecare listă acceptă până la {{limit}} URL-uri valide. Torrentele private necesită un tracker.",
+    "menuLabel": "Creează un fișier torrent…",
+    "downloadRequested": "Descărcare solicitată: {{path}}"
   }
 }

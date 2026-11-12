@@ -22,12 +22,15 @@ import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
+  makeDownloadTask,
   TaskInstancePhase,
+  TaskKind,
   TaskStatus,
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
 import {
+  hasRetainedHttpRequestContext,
   isMediaKind,
   isTorrentLike,
   isTorrentLikeType,
@@ -48,6 +51,11 @@ import type {
   DirectResourceMetadataProfile,
   EngineAdapter,
 } from '../engine/engine-adapter'
+import type {
+  EngineSessionRecoveryStore,
+  EngineSessionTask,
+  EngineSessionTaskFailure,
+} from '../engine/engine-session-recovery'
 import {
   buildTerminalOccurrence,
   terminalSnapshotFromTask,
@@ -67,6 +75,7 @@ import {
 } from '../task/bt-storage-layout'
 import { unsettledBtUpload } from '../task/bt-upload-settlement'
 import { isCompletedDirectOutput } from '../task/completed-direct-task-policy'
+import { updateDirectReplayRetention } from '../task/direct-replay-recipe'
 import {
   canMirrorAria2MetadataHeaders,
   type DirectResourceProxyOptionsProvider,
@@ -76,7 +85,10 @@ import { restoreMediaProgress } from '../task/media-task-progress'
 import { isTempPath } from '../task/paths'
 import { setTaskTransitionPhase } from '../task/task-instance'
 import type { TaskManager } from '../task/task-manager'
-import { taskRowToDownloadTask } from '../task/task-row-to-download-task'
+import {
+  restoredTaskFileCount,
+  taskRowToDownloadTask,
+} from '../task/task-row-to-download-task'
 import { restoreTaskSaveDirectory } from '../task/task-save-directory'
 import { isMagnetCleanupTombstoneHidden } from '../torrent/magnet-cleanup-quarantine'
 import { computeUriHash, deriveInfoHash } from './content-key'
@@ -292,6 +304,26 @@ export class SessionManager {
     private getDirectResourceProxyOptions: DirectResourceProxyOptionsProvider = () =>
       null
   ) {}
+
+  private authorizeRecoveryWrite?: (task: DownloadTask) => Promise<void>
+
+  /** Host grants apply to automatic reconstruction as well as explicit resume. */
+  setRecoveryWriteAuthorization(
+    authorize: (task: DownloadTask) => Promise<void>
+  ): void {
+    this.authorizeRecoveryWrite = authorize
+  }
+
+  private async canRecoverWrite(pair: TaskWithInstances): Promise<boolean> {
+    try {
+      await this.authorizeRecoveryWrite?.(
+        taskRowToDownloadTask(pair.task, pair.instances)
+      )
+      return true
+    } catch {
+      return false
+    }
+  }
 
   /**
    * Binds the shared plugin terminal boundary after the Hook runtime is built.
@@ -659,6 +691,105 @@ export class SessionManager {
     return result
   }
 
+  /** Bind the same pre-spawn recovery policy in both application hosts. */
+  getEngineSessionRecoveryStore(): EngineSessionRecoveryStore {
+    return {
+      getContext: (task) => {
+        const pairs = this.db.getAllTasks()
+        const owners = this.sessionRecoveryOwners(task, pairs)
+        return {
+          retired: owners.some((pair) =>
+            [TaskStatus.Error, TaskStatus.Completed].includes(
+              pair.task.aggStatus
+            )
+          ),
+          // Content identity is sufficient for metadata bytes, but never for
+          // choosing which public task to retire. The engine validates hashes.
+          metadataPaths: pairs.flatMap((pair) =>
+            !hasLegacyImport(pair) &&
+            pair.task.torrentMetaPath &&
+            (owners.includes(pair) ||
+              pair.task.infoHash?.toLowerCase() === task.infoHash)
+              ? [pair.task.torrentMetaPath]
+              : []
+          ),
+        }
+      },
+      quarantine: (tasks) => this.quarantineEngineSessionTasks(tasks),
+    }
+  }
+
+  private sessionRecoveryOwners(
+    task: EngineSessionTask,
+    pairs = this.db.getAllTasks()
+  ): TaskWithInstances[] {
+    const owners = pairs.filter((pair) =>
+      pair.instances.some(
+        (instance) =>
+          instance.gid === task.engineTaskId ||
+          instance.gid === task.metadataTaskId
+      )
+    )
+    if (
+      owners.some(
+        (pair) =>
+          hasLegacyImport(pair) || !isTorrentLikeType(pair.task.taskType)
+      )
+    )
+      throw new Error(
+        'Engine session recovery conflicts with a protected task identity'
+      )
+    return owners
+  }
+
+  private async quarantineEngineSessionTasks(
+    tasks: readonly EngineSessionTaskFailure[]
+  ): Promise<void> {
+    for (const failed of tasks) {
+      const owners = this.sessionRecoveryOwners(failed)
+      const candidates = owners.length
+        ? owners.map((pair) =>
+            this.adoptByPair(pair, pair.instances[0]?.gid ?? '')
+          )
+        : [
+            makeDownloadTask({
+              id: newTaskId(),
+              engineTaskId: failed.engineTaskId,
+              name: failed.infoHash,
+              filename: failed.infoHash,
+              type: TaskType.Magnet,
+              kind: TaskKind.Bt,
+              saveDir: failed.saveDir,
+              // The engine session does not prove any output file paths. Keep
+              // deletion from treating a shared download directory as payload.
+              diskPath: '',
+              finalPath: '',
+              finalName: '',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              source: 'user',
+              sourceMeta: null,
+              uris: [failed.sourceUri],
+              infoHash: failed.infoHash,
+              bt: makeDefaultBtExtension({ magnetUri: failed.sourceUri }),
+              instances: [],
+            }),
+          ]
+      for (const candidate of candidates) {
+        if ([TaskStatus.Error, TaskStatus.Completed].includes(candidate.status))
+          continue
+        const task = await this.markRecoverErrorTask(
+          candidate,
+          candidate.status,
+          failed.reason === 'files-missing'
+            ? 'task.error.detail.filesMissing'
+            : 'task.recovery.startup.torrentMetaMissing'
+        )
+        this.taskManager.set(task.id, task)
+      }
+    }
+  }
+
   async restore(
     assertProxyCurrent?: () => void,
     observeCompletedTask?: (snapshot: DownloadTask) => Promise<unknown>
@@ -869,13 +1000,17 @@ export class SessionManager {
           this.taskManager.set(task.id, task)
           consumedMotrixIds.add(parent.task.motrixId)
           // Metadata Errors keep their GID: MagnetTracker primes a cache
-          // shield for it after restore. Every other Error evicts the
-          // engine's copy so the next launch stays clean.
+          // shield for it after restore. Native HTTP Errors also retain their
+          // request/checkpoint context; mergeEngineTask keeps their paused
+          // replay behind the explicit Retry action. Other Errors are evicted.
           const isMetadataError = parent.instances.some(
             (instance) =>
               instance.phase === TaskInstancePhase.MagnetMetadataResolution
           )
-          if (!isMetadataError) {
+          const retainedHttp =
+            task.engineTaskId === aria2.gid &&
+            hasRetainedHttpRequestContext(task)
+          if (!isMetadataError && !retainedHttp) {
             evictions.push(this.evictResurrectedErrorRow(aria2))
           }
           continue
@@ -1521,7 +1656,7 @@ export class SessionManager {
       uris: primary?.uris ?? [],
       uploadedBytes,
       uploadedBytesBaseline,
-      fileCount: taskPart.fileCount,
+      fileCount: restoredTaskFileCount(taskPart),
       connections: 0,
       pieceLength: taskPart.pieceLength,
       infoHash: taskPart.infoHash,
@@ -1558,6 +1693,11 @@ export class SessionManager {
     pair: TaskWithInstances,
     assertProxyCurrent?: () => void
   ): Promise<DownloadTask> {
+    if (!(await this.canRecoverWrite(pair)))
+      return this.markRecoverErrorFromPair(
+        pair,
+        'task.recovery.startup.resumePathInvalid'
+      )
     const taskPart = pair.task
     const primary = pair.instances[0]
 
@@ -1757,10 +1897,31 @@ export class SessionManager {
         }
         ifRange = validation.ifRange
       }
-      return this.dispatchRecoveryCandidate(pair, (gid) => {
+      const retainRequestContext = Boolean(
+        recipe &&
+          admittedUris.length === 1 &&
+          /^https?:/i.test(admittedUris[0]) &&
+          (await this.adapter.supportsDirectTaskRetry?.())
+      )
+      const retryPair: TaskWithInstances = {
+        ...pair,
+        instances: pair.instances.map((instance) =>
+          instance === primary
+            ? {
+                ...instance,
+                payload: updateDirectReplayRetention(
+                  instance.payload,
+                  retainRequestContext
+                ),
+              }
+            : instance
+        ),
+      }
+      return this.dispatchRecoveryCandidate(retryPair, (gid) => {
         assertProxyCurrent?.()
         return this.adapter.createDownload({
           uris: admittedUris,
+          ...(retainRequestContext ? { retainRequestContext: true } : {}),
           gid,
           saveDir: plan.saveDir as string,
           filename: plan.filename as string,
@@ -1957,6 +2118,11 @@ export class SessionManager {
   private async recoverMagnetMetadata(
     pair: TaskWithInstances
   ): Promise<DownloadTask> {
+    if (!(await this.canRecoverWrite(pair)))
+      return this.markRecoverErrorFromPair(
+        pair,
+        'task.recovery.startup.resumePathInvalid'
+      )
     const now = Date.now()
     const taskPart = pair.task
     const primary = pair.instances[0]

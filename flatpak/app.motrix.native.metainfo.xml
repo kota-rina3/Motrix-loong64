@@ -68,6 +68,43 @@
   </screenshots>
 
   <releases>
+    <release version="2.4.1" date="2026-11-10">
+      <description>
+        <p>
+          Updates aria2 to retry other resolved addresses after a connection fails on
+          Windows. Updates the translation libraries used by the desktop app and Web UI.
+        </p>
+      </description>
+    </release>
+    <release version="2.4.0" date="2026-11-08">
+      <description>
+        <p>
+          Create BitTorrent v1 torrents from a file or folder and choose whether
+          to seed the source files. Adds native Synology DSM 7 packages and
+          improves recovery when renaming completed downloads on Windows.
+        </p>
+      </description>
+    </release>
+    <release version="2.3.0" date="2026-11-05">
+      <description>
+        <p>
+          Refreshes application artwork and restores cloud-drive directory
+          downloads with aria2 1.37.0-motrix.23. Improves Server media tools,
+          settings and update checks, verifies legacy macOS FFmpeg installations,
+          and preserves hidden windows when cancelling new tasks.
+        </p>
+      </description>
+    </release>
+    <release version="2.2.1" date="2026-11-03">
+      <description>
+        <p>
+          Fixes startup recovery for broken magnet sessions and safe continuation
+          of retained HTTP tasks. Prevents stale retries after Web UI session
+          changes and bundles aria2 1.37.0-motrix.22. Keep the engine's pre-upgrade
+          database backup: older engines cannot open schema 6.
+        </p>
+      </description>
+    </release>
     <release version="2.2.0" date="2026-11-01">
       <description>
         <p>

@@ -41,6 +41,29 @@ afterEach(async () => {
 })
 
 describe('third-party notice generator', () => {
+  it('retains an omitted license declaration while applying a version-specific reviewed conclusion', async () => {
+    const root = await createFixture()
+    await writeJson(path.join(root, 'package.json'), {
+      name: 'fixture',
+      version: '1.0.0',
+      dependencies: { alpha: '1.0.0' },
+    })
+    await writePackage(root, 'node_modules/alpha', {
+      name: 'alpha',
+      version: '1.0.0',
+    })
+    await expect(collectRuntimePackages({ projectDir: root })).rejects.toThrow(
+      'no declared license'
+    )
+    const graph = await collectRuntimePackages({
+      projectDir: root,
+      packageOverrides: { 'alpha@1.0.0': { licenseConcluded: 'MIT' } },
+    })
+    expect(graph.packages[0]).toMatchObject({
+      licenseDeclared: 'NOASSERTION',
+      licenseConcluded: 'MIT',
+    })
+  })
   it('uses root runtime declarations despite an existing staged manifest', async () => {
     const root = await createFixture()
     await writeJson(path.join(root, 'package.json'), {
@@ -170,8 +193,8 @@ describe('third-party notice generator', () => {
     }
 
     expect(bundle.packageCount).toBeGreaterThan(100)
-    expect(inventory).toContain('| @xyflow/react | 12.12.0 |')
-    expect(inventory).toContain('| aria2 | 1.37.0-motrix.21 |')
+    expect(inventory).toContain('| @xyflow/react | 12.12.1 |')
+    expect(inventory).toContain('| aria2 | 1.37.0-motrix.24 |')
     expect(inventory).toContain('| motrix.filename-template | 1.1.1 |')
     expect(inventory).toContain('Apple San Francisco tray font')
     expect(licenses).toContain('GNU GENERAL PUBLIC LICENSE')
@@ -180,7 +203,7 @@ describe('third-party notice generator', () => {
     )
     expect(sbom.spdxVersion).toBe('SPDX-2.3')
     expect(sbom.packages).toContainEqual(
-      expect.objectContaining({ name: 'Electron', versionInfo: '45.2.1' })
+      expect.objectContaining({ name: 'Electron', versionInfo: '45.2.3' })
     )
     expect(sbom.packages).toContainEqual(
       expect.objectContaining({
@@ -282,7 +305,7 @@ describe('third-party notice generator', () => {
       expect(licenses).toContain('GNU GENERAL PUBLIC LICENSE')
     }
     const serverInventory = server.files['THIRD_PARTY_DEPENDENCIES.md']
-    expect(serverInventory).toContain('| aria2 | 1.37.0-motrix.21 |')
+    expect(serverInventory).toContain('| aria2 | 1.37.0-motrix.24 |')
     expect(serverInventory).toContain('| motrix.filename-template | 1.1.1 |')
     expect(serverInventory).not.toContain('| Electron |')
 

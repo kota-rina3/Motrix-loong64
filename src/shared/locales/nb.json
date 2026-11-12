@@ -400,7 +400,9 @@
     "help": "Denne serveren krever operatørtokenet. På vertsmaskinen setter du MOTRIX_OPERATOR_TOKEN eller leser tokenet fra <dataDir>/operator-token, og limer det inn nedenfor.",
     "placeholder": "Operatørtoken",
     "submit": "Lås opp",
-    "title": "Lås opp Motrix"
+    "title": "Lås opp Motrix",
+    "nasSessionExpired": "Kan ikke bekrefte NAS-administratorøkten. Åpne Motrix fra NAS-skrivebordet.",
+    "openDsm": "Open DSM to sign in"
   },
   "panel": {
     "completed": {
@@ -430,7 +432,7 @@
         "more": "Flere",
         "rangeSummary": "{{weeks}} uker med nedlastingsaktivitet, fra {{start}} til {{end}}",
         "retry": "Prøv igjen",
-        "stale": "Aktiviteten kan være utdatert",
+        "refreshFailed": "Oppdateringen mislyktes",
         "title": "Aktivitet",
         "tooltip": {
           "completed": "Fullført: {{count}}",
@@ -905,7 +907,11 @@
         "redownloadStarted": "Re-download started",
         "retryDialogTitle": "Prøv nedlastingen på nytt",
         "retryDialogDescription": "Rediger forespørselsparametrene for {{name}} for å starte en ny nedlasting. Den mislykkede oppgaven og den delvise filen beholdes.",
-        "retryDialogProgress": "Nedlasting {{current}} av {{total}}"
+        "retryDialogProgress": "Nedlasting {{current}} av {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "column": {
         "connections": "Tilkoblinger",
@@ -2041,6 +2047,10 @@
       "network": {
         "desc": "Mellomtjener, DNS og NAT/UPnP",
         "title": "Nettverk"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "common": {
@@ -2312,6 +2322,12 @@
       "warnBeforeQuitDesc": "Spør før avslutning hvis nedlastinger fortsatt pågår."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Registrer dette Motrix-AppImage i skrivebordsmiljøet, slik at nettlesere og magnetlenker kan overføre nedlastinger til det.",
         "enable": "Aktiver skrivebordsintegrasjon",
@@ -2396,7 +2412,10 @@
           "identityUnverifiedWarning": "Identiteten til denne utvidelsen kunne ikke bekreftes. Fortsett bare hvis du stoler på den.",
           "pairCode": "Sammenkoblingskode",
           "pairCodeHint": "Skriv inn denne koden i utvidelsen",
-          "title": "En {{browser}}-utvidelse vil koble til Motrix"
+          "title": "En {{browser}}-utvidelse vil koble til Motrix",
+          "claim": "Koble til med gjeldende konto",
+          "claimDesc": "Utvidelsen vil bruke tillatelsene til denne kontoen. Skriv deretter inn paringskoden i utvidelsen for å fullføre.",
+          "account": "Gjeldende konto: {{name}}"
         },
         "pairUnavailable": "Denne sammenkoblingsforespørselen venter ikke lenger — prøv sammenkoblingen på nytt fra nettleserutvidelsen.",
         "pairedEmpty": "Ingen utvidelser er tilkoblet ennå.",
@@ -2404,6 +2423,8 @@
         "connected": "Tilkoblet",
         "disconnected": "Ikke tilkoblet",
         "revokeAll": "Koble fra alle",
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Tilkoblede utvidelser",
         "pairingStateDegraded": {
           "description": "Motrix kunne ikke oppdatere registreringene for sammenkoblede utvidelser trygt. Eksisterende utvidelsesøkter er lukket, og ny tilgang er blokkert for denne kjøringen. Start Motrix på nytt for å prøve reparasjonen igjen; ikke stol på listen nedenfor før denne meldingen forsvinner.",
@@ -2590,7 +2611,8 @@
           "missing": "Ikke funnet",
           "unconfigured": "Ikke angitt",
           "untrusted": "Blokkert av macOS",
-          "version_mismatch": "Støttes ikke"
+          "version_mismatch": "Støttes ikke",
+          "verificationUnavailable": "Verifisering utilgjengelig"
         },
         "title": "Medieverktøy",
         "validation": {
@@ -2758,6 +2780,37 @@
       "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
       "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
       "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "task": {
@@ -2797,7 +2850,7 @@
         "title": "Denne torrenten finnes allerede"
       },
       "errors": {
-        "headerNameRequired": "Angi et headernavn eller fjern denne headeren.",
+        "headerNameRequired": "Gi hvert hodefelt med en verdi et navn.",
         "missingSource": "En torrentfil eller magnetlenke kreves",
         "noFilesSelected": "Velg minst én fil",
         "saveDirRequired": "Lagringsmappe kreves",
@@ -2872,7 +2925,8 @@
       "urlsLabel": "URL-er",
       "urlsWithInvalid": "Gyldige: {{valid}}, ugyldige: {{invalid}}",
       "userAgent": "User-Agent",
-      "validUrlCount": "Gyldige: {{count}}"
+      "validUrlCount": "Gyldige: {{count}}",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Noder: {{count}}",
@@ -2889,6 +2943,7 @@
         "recoveryFailed": "Kunne ikke gjenopprette nedlastingen: {{cause}}",
         "recoveryOutputConflict": "Både den midlertidige og den endelige filen finnes; begge er beholdt for manuell gjennomgang",
         "renameDirFailed": "Kunne ikke endre mappenavnet: {{cause}}",
+        "sourceHash": "Utgiverens SHA-256",
         "renameFileFailed": "Kunne ikke endre filnavnet: {{cause}}"
       },
       "hint": {
@@ -3461,5 +3516,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Opprett torrent",
+    "source": "Innhold som skal deles",
+    "options": "Torrentvalg",
+    "trackers": "Trackere",
+    "trackersPlaceholder": "Én announce-URL per linje",
+    "webSeeds": "Web-frø",
+    "webSeedsPlaceholder": "Én HTTP(S)-URL per linje (valgfritt)",
+    "comment": "Kommentar",
+    "private": "Privat torrent",
+    "privateDesc": "Slår av DHT og peer-utveksling; distribusjon kun via tracker.",
+    "pieceLength": "Stykkestørrelse",
+    "pieceAuto": "Automatisk",
+    "hashing": "Beregner sjekksummer…",
+    "resultName": "Navn",
+    "resultSize": "Størrelse",
+    "resultInfoHash": "Info-sjekksum",
+    "saveFile": "Lagre .torrent",
+    "create": "Opprett",
+    "savedToast": "Torrent lagret til {{path}}",
+    "createFailed": "Kunne ikke opprette torrenten",
+    "saveFailed": "Kunne ikke lagre torrentfilen",
+    "seedAfter": "Start seeding etter lagring",
+    "seedFailed": "Seedingen kunne ikke startes.",
+    "seedSubmitted": "Seedingoppgaven er sendt inn.",
+    "invalidOptions": "Hver liste kan ha opptil {{limit}} gyldige URL-er. Private torrenter trenger en tracker.",
+    "menuLabel": "Opprett torrentfil…",
+    "downloadRequested": "Nedlasting forespurt: {{path}}"
   }
 }

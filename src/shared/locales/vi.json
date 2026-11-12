@@ -4,7 +4,9 @@
     "help": "Máy chủ này yêu cầu token quản trị. Trên máy chủ, đặt MOTRIX_OPERATOR_TOKEN hoặc đọc token từ <dataDir>/operator-token rồi dán vào bên dưới.",
     "placeholder": "Token quản trị",
     "error": "Token quản trị không hợp lệ. Hãy kiểm tra MOTRIX_OPERATOR_TOKEN hoặc <dataDir>/operator-token trên máy chủ rồi thử lại.",
-    "submit": "Mở khóa"
+    "submit": "Mở khóa",
+    "nasSessionExpired": "Không thể xác minh phiên quản trị viên NAS. Hãy mở Motrix từ màn hình NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
     "help": "Cách dùng:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nLệnh chỉ giao tiếp với máy chủ Motrix đang chạy qua địa chỉ loopback của container.",
@@ -330,7 +332,7 @@
         "loading": "Đang tải dữ liệu hoạt động",
         "unavailable": "Không thể tải dữ liệu hoạt động",
         "retry": "Thử lại",
-        "stale": "Dữ liệu hoạt động có thể đã cũ",
+        "refreshFailed": "Không thể làm mới",
         "coverageDegraded": "Dữ liệu hoạt động có thể không đầy đủ từ {{time}}",
         "rangeSummary": "{{weeks}} tuần hoạt động tải xuống, từ {{start}} đến {{end}}",
         "completedIntensity": "Độ đậm của màu thể hiện số lượt tải xuống hoàn tất",
@@ -932,7 +934,11 @@
         "redownloadStarted": "Re-download started",
         "retryDialogTitle": "Thử tải xuống lại",
         "retryDialogDescription": "Chỉnh sửa tham số yêu cầu cho {{name}} để bắt đầu lượt tải xuống mới. Tác vụ thất bại và tệp tải xuống một phần sẽ được giữ lại.",
-        "retryDialogProgress": "Lượt tải {{current}} trên {{total}}"
+        "retryDialogProgress": "Lượt tải {{current}} trên {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "titleCount": "Đang hiện {{shown}} · Tổng cộng {{total}}",
       "type": {
@@ -1110,7 +1116,7 @@
         "doc": "Tài liệu"
       },
       "errors": {
-        "headerNameRequired": "Nhập tên tiêu đề hoặc xóa tiêu đề này.",
+        "headerNameRequired": "Nhập tên cho mỗi tiêu đề có giá trị.",
         "urlsRequired": "Cần ít nhất một URL",
         "saveDirRequired": "Cần chọn thư mục lưu",
         "noFilesSelected": "Chọn ít nhất một tệp",
@@ -1121,7 +1127,8 @@
         "failed": "Không thể tự động bắt đầu {{name}}. Hãy mở chi tiết tác vụ để chọn tệp rồi thử lại."
       },
       "undoCorrection": "Hoàn tác sửa URL",
-      "submissionUnconfirmed": "Chưa xác nhận được kết quả. Khi thử lại, yêu cầu ban đầu sẽ được kiểm tra trước khi tạo tác vụ khác."
+      "submissionUnconfirmed": "Chưa xác nhận được kết quả. Khi thử lại, yêu cầu ban đầu sẽ được kiểm tra trước khi tạo tác vụ khác.",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Máy ngang hàng: {{count}}",
@@ -1174,6 +1181,7 @@
         "recoveryFailed": "Không thể khôi phục lượt tải xuống: {{cause}}",
         "recoveryOutputConflict": "Cả tệp tạm và tệp cuối cùng đều tồn tại; cả hai được giữ lại để kiểm tra thủ công",
         "filesMissing": "Thiếu tệp sau khi ứng dụng khởi động lại",
+        "sourceHash": "SHA-256 của nhà phát hành",
         "renameFileFailed": "Không thể đổi tên tệp: {{cause}}",
         "renameDirFailed": "Không thể đổi tên thư mục: {{cause}}",
         "pluginChainAborted": "Chuỗi tiện ích đã bị hủy: {{cause}}",
@@ -1275,6 +1283,10 @@
       "integration": {
         "title": "Tích hợp",
         "desc": "Tiện ích mở rộng trình duyệt, CLI, tích hợp hệ thống"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1860,6 +1872,12 @@
       "hideSecret": "Ẩn giá trị bí mật"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Ứng dụng mặc định",
         "protocolMagnet": "Mở liên kết magnet bằng Motrix",
@@ -1917,6 +1935,8 @@
           "store": "Cài đặt",
           "development": "Phát triển"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Tiện ích mở rộng đã kết nối",
         "pairedEmpty": "Chưa có tiện ích mở rộng nào kết nối.",
         "profile": "Hồ sơ trình duyệt {{number}}",
@@ -1948,7 +1968,10 @@
             "attested": "Tiện ích mở rộng đã xác minh",
             "unverified": "Tiện ích mở rộng chưa xác minh"
           },
-          "identityUnverifiedWarning": "Không thể xác minh danh tính tiện ích mở rộng này. Chỉ tiếp tục nếu bạn tin tưởng tiện ích."
+          "identityUnverifiedWarning": "Không thể xác minh danh tính tiện ích mở rộng này. Chỉ tiếp tục nếu bạn tin tưởng tiện ích.",
+          "claim": "Ghép nối bằng tài khoản hiện tại",
+          "claimDesc": "Tiện ích sẽ sử dụng quyền của tài khoản này. Tiếp theo, nhập mã vào tiện ích để hoàn tất ghép nối.",
+          "account": "Tài khoản hiện tại: {{name}}"
         },
         "pairUnavailable": "Yêu cầu ghép đôi này không còn ở trạng thái chờ — hãy thử ghép đôi lại từ tiện ích mở rộng trình duyệt.",
         "trustedExtensions": "Tiện ích mở rộng đáng tin cậy",
@@ -2127,7 +2150,8 @@
           "missing": "Không tìm thấy",
           "untrusted": "Bị macOS chặn",
           "unconfigured": "Chưa đặt",
-          "version_mismatch": "Không được hỗ trợ"
+          "version_mismatch": "Không được hỗ trợ",
+          "verificationUnavailable": "Không thể xác minh"
         },
         "stagingMB": "Giới hạn tệp tạm (MB)",
         "stagingMBDesc": "Dung lượng cho tệp trung gian, tính riêng theo từng tiện ích và tác vụ.",
@@ -2239,6 +2263,37 @@
       "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
       "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
       "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -3437,5 +3492,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Tạo torrent",
+    "source": "Nội dung chia sẻ",
+    "options": "Tùy chọn torrent",
+    "trackers": "Tracker",
+    "trackersPlaceholder": "Mỗi dòng một URL announce",
+    "webSeeds": "Web seed",
+    "webSeedsPlaceholder": "Mỗi dòng một URL HTTP(S) (tùy chọn)",
+    "comment": "Ghi chú",
+    "private": "Torrent riêng tư",
+    "privateDesc": "Tắt DHT và trao đổi peer; chỉ phát hành qua tracker.",
+    "pieceLength": "Kích thước mảnh",
+    "pieceAuto": "Tự động",
+    "hashing": "Đang tính hash…",
+    "resultName": "Tên",
+    "resultSize": "Kích thước",
+    "resultInfoHash": "Hash info",
+    "saveFile": "Lưu .torrent",
+    "create": "Tạo",
+    "savedToast": "Đã lưu torrent vào {{path}}",
+    "createFailed": "Không thể tạo torrent",
+    "saveFailed": "Không thể lưu tệp torrent",
+    "seedAfter": "Bắt đầu chia sẻ sau khi lưu",
+    "seedFailed": "Không thể bắt đầu chia sẻ.",
+    "seedSubmitted": "Đã gửi tác vụ chia sẻ.",
+    "invalidOptions": "Mỗi danh sách nhận tối đa {{limit}} URL hợp lệ. Torrent riêng tư cần có tracker.",
+    "menuLabel": "Tạo tệp torrent…",
+    "downloadRequested": "Đã yêu cầu tải xuống: {{path}}"
   }
 }

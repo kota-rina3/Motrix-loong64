@@ -119,6 +119,7 @@ import {
 import { appImageNativeHostActionSchema } from '@shared/schemas/appimage-native-host'
 import { btStorageRequestSchema } from '@shared/schemas/bt-storage'
 import {
+  reAddTaskPayloadSchema,
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
@@ -177,6 +178,7 @@ import { installManagedFfmpeg } from '../plugin/verified-ffmpeg-electron'
 import type { createMainProxyApplier } from '../proxy/wiring'
 import type { createRendererRecoveryRuntime } from '../window/renderer-recovery-runtime'
 import type { WindowManager } from '../window/window-manager'
+import { torrentCreatorHandlers } from './commands/create-torrent'
 import { createOpenTaskFileHandler } from './commands/open-task-file'
 import { createRevealInFolderHandler } from './commands/reveal-in-folder'
 import { createSetSelectedFilesHandler } from './commands/set-selected-files'
@@ -210,7 +212,7 @@ export interface CommandContext {
    * paths cannot drift. Called synchronously during handler construction.
    */
   bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
-  recoverFinalization?: (taskId: string) => Promise<void>
+  recoverFinalization?: (taskId: string, sha256?: string) => Promise<void>
   sessionManager: SessionManager
   settingsManager: SettingsManager
   applyLocale?: (language: string) => Promise<void>
@@ -933,8 +935,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
-    [Commands.ReAddTask]: async (taskId: string) => {
-      await reAddTask(taskId, reAddDeps)
+    [Commands.ReAddTask]: async (rawPayload: unknown) => {
+      const { taskId, sha256 } = reAddTaskPayloadSchema.parse(rawPayload)
+      await reAddTask(taskId, reAddDeps, sha256)
       return { ok: true }
     },
 
@@ -951,6 +954,15 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
+    ...torrentCreatorHandlers(
+      (sender) =>
+        windowManager.getWindowIdBySender(sender) === 'create-torrent',
+      directoryHistory.wrap(async (request) => {
+        await activatePluginsForTask('bt', '')
+        return createAndPersist(request)
+      }),
+      () => ctx.rendererRecovery?.supervisor.enterModal()
+    ),
     [Commands.CreateTask]: directoryHistory.wrap(async (request: unknown) => {
       try {
         request = admitTaskCreateRequest(request)
@@ -1447,7 +1459,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           protocolManager.resetDialogState()
         }
         windowManager.closeAndRecycle(id)
-        if (options.showMain) {
+        if (
+          options.showMain === true ||
+          (options.showMain === 'if-visible' &&
+            windowManager.get('main')?.isVisible())
+        ) {
           windowManager.show('main')
         }
         if (options.navigateMainTo) {
@@ -2070,6 +2086,9 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.MinimizeCurrentWindow ||
       channel === Commands.ToggleMaximizeCurrentWindow ||
       channel === Commands.PickSaveDir ||
+      channel === Commands.PickTorrentSource ||
+      channel === Commands.CreateTorrent ||
+      channel === Commands.SaveTorrentFile ||
       OPERATION_CHANNELS.has(channel) ||
       channel === Commands.PickFile ||
       channel === Commands.ResizeWindow ||

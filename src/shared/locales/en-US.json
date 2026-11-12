@@ -4,7 +4,9 @@
     "help": "This server requires the operator token. On the host, set MOTRIX_OPERATOR_TOKEN, or read the token from <dataDir>/operator-token, then paste it below.",
     "placeholder": "Operator token",
     "error": "Invalid operator token. Check MOTRIX_OPERATOR_TOKEN or <dataDir>/operator-token on the host and try again.",
-    "submit": "Unlock"
+    "submit": "Unlock",
+    "nasSessionExpired": "Unable to verify your NAS administrator session. Open Motrix from the NAS desktop.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
     "help": "Usage:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nThe command talks only to the running Motrix server over container loopback.",
@@ -331,7 +333,7 @@
         "loading": "Loading activity",
         "unavailable": "Activity unavailable",
         "retry": "Retry",
-        "stale": "Activity may be out of date",
+        "refreshFailed": "Refresh failed",
         "coverageDegraded": "Activity may be incomplete since {{time}}",
         "rangeSummary": "{{weeks}} weeks of download activity, {{start}} to {{end}}",
         "completedIntensity": "Color intensity shows completed downloads",
@@ -944,7 +946,11 @@
         "redownloadStarted": "Re-download started",
         "retryDialogTitle": "Retry download",
         "retryDialogDescription": "Edit the request parameters for {{name}} to start a new download. The failed task and its partial file will be kept.",
-        "retryDialogProgress": "Download {{current}} of {{total}}"
+        "retryDialogProgress": "Download {{current}} of {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "titleCount": "{{shown}} shown · {{total}} total",
       "type": {
@@ -1123,7 +1129,7 @@
         "doc": "Document"
       },
       "errors": {
-        "headerNameRequired": "Enter a header name or remove this header.",
+        "headerNameRequired": "Add a name for each header with a value.",
         "urlsRequired": "At least one URL is required",
         "saveDirRequired": "Save directory is required",
         "noFilesSelected": "Select at least one file",
@@ -1134,7 +1140,8 @@
         "failed": "Could not start {{name}} automatically. Open task details to select files and retry."
       },
       "undoCorrection": "Undo URL correction",
-      "submissionUnconfirmed": "The result is unconfirmed. Retry will check the original request before creating another task."
+      "submissionUnconfirmed": "The result is unconfirmed. Retry will check the original request before creating another task.",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Peers: {{count}}",
@@ -1188,6 +1195,7 @@
         "recoveryFailed": "Could not recover the download: {{cause}}",
         "recoveryOutputConflict": "Both the temporary and final files exist; both were preserved for manual review",
         "filesMissing": "Files are missing after the app restarted",
+        "sourceHash": "Publisher’s SHA-256",
         "renameFileFailed": "Failed to rename the file: {{cause}}",
         "renameDirFailed": "Failed to rename the directory: {{cause}}",
         "pluginChainAborted": "Plugin chain aborted: {{cause}}",
@@ -1289,6 +1297,10 @@
       "integration": {
         "title": "Integration",
         "desc": "Browser extensions, CLI, system integrations"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1874,6 +1886,12 @@
       "hideSecret": "Hide secret"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Default app",
         "protocolMagnet": "Open magnet links with Motrix",
@@ -1931,6 +1949,8 @@
           "store": "Install",
           "development": "Development"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Connected extensions",
         "pairedEmpty": "No extensions connected yet.",
         "profile": "Browser profile {{number}}",
@@ -1962,7 +1982,10 @@
             "attested": "Verified extension",
             "unverified": "Unverified extension"
           },
-          "identityUnverifiedWarning": "This extension’s identity could not be verified. Only continue if you trust it."
+          "identityUnverifiedWarning": "This extension’s identity could not be verified. Only continue if you trust it.",
+          "claim": "Pair with current account",
+          "claimDesc": "This extension will use this account’s permissions. Next, enter the pairing code in the extension to finish.",
+          "account": "Current account: {{name}}"
         },
         "pairUnavailable": "This pairing request is no longer pending — retry pairing from the browser extension.",
         "trustedExtensions": "Trusted extensions",
@@ -2142,7 +2165,8 @@
           "missing": "Not found",
           "untrusted": "Blocked by macOS",
           "unconfigured": "Not set",
-          "version_mismatch": "Unsupported"
+          "version_mismatch": "Unsupported",
+          "verificationUnavailable": "Verification unavailable"
         },
         "stagingMB": "Temporary file limit (MB)",
         "stagingMBDesc": "Space for intermediate files, per plugin and task.",
@@ -2254,6 +2278,37 @@
       "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
       "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
       "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -3461,5 +3516,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Create torrent",
+    "source": "Content to share",
+    "options": "Torrent options",
+    "trackers": "Trackers",
+    "trackersPlaceholder": "One announce URL per line",
+    "webSeeds": "Web seeds",
+    "webSeedsPlaceholder": "One HTTP(S) URL per line (optional)",
+    "comment": "Comment",
+    "private": "Private torrent",
+    "privateDesc": "Disable DHT and peer exchange; tracker-only distribution.",
+    "pieceLength": "Piece size",
+    "pieceAuto": "Automatic",
+    "hashing": "Hashing…",
+    "resultName": "Name",
+    "resultSize": "Size",
+    "resultInfoHash": "Info hash",
+    "saveFile": "Save .torrent",
+    "create": "Create",
+    "savedToast": "Torrent saved to {{path}}",
+    "createFailed": "Could not create the torrent",
+    "saveFailed": "Could not save the torrent file",
+    "seedAfter": "Start seeding after saving",
+    "seedFailed": "The seeding task could not be started.",
+    "seedSubmitted": "The seeding task was submitted.",
+    "invalidOptions": "Use up to {{limit}} valid URLs per list. Private torrents need a tracker.",
+    "menuLabel": "Create Torrent File…",
+    "downloadRequested": "Download requested: {{path}}"
   }
 }

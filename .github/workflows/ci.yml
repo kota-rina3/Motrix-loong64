@@ -52,7 +52,7 @@ jobs:
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.16.1
+          version: 12.18.0
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -69,7 +69,7 @@ jobs:
       # hydrate dist/. The notice contract needs the runtime license payload;
       # the package installer is idempotent when dist/ already matches.
       - name: Ensure Electron runtime payload
-        run: node node_modules/electron/install.js
+        run: node scripts/ensure-electron-runtime.mjs --retry-download
 
       - name: i18n catalog and translation contract
         run: pnpm run check:i18n
@@ -118,7 +118,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.16.1
+          version: 12.18.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -129,7 +129,7 @@ jobs:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
       - name: Ensure Electron runtime payload
-        run: node node_modules/electron/install.js
+        run: node scripts/ensure-electron-runtime.mjs --retry-download
       - name: Setup Rust for native test fixtures
         uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
         with:
@@ -170,7 +170,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.16.1
+          version: 12.18.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -200,7 +200,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.16.1
+          version: 12.18.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -337,7 +337,7 @@ jobs:
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.16.1
+          version: 12.18.0
           run_install: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -409,9 +409,11 @@ jobs:
       # Electron does not hydrate dist/ during pnpm install. build:legal
       # and the electron-builder smoke both require that runtime payload.
       - name: Ensure Electron runtime payload
-        run: node node_modules/electron/install.js
+        run: node scripts/ensure-electron-runtime.mjs --retry-download
 
       - name: Fetch target aria2
+        env:
+          MOTRIX_ENGINE_FETCH_TIMEOUT_MS: '90000'
         run: >-
           pnpm run fetch:engine
           --platform ${{ matrix.platform }}
@@ -425,10 +427,15 @@ jobs:
 
       - name: Native runtime integration
         env:
+          MOTRIX_ARIA2_TEST_BIN: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
+          MOTRIX_REQUIRE_HTTP_RETRY_TEST: '1'
           MOTRIX_LEGACY_CHECKPOINT_ENGINE: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
           MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
         run: >-
           pnpm exec vitest run
+          src/core/task/direct-task-retry.integration.test.ts
+          src/core/task/http-finalize.integration.test.ts
+          src/core/engine/aria2/aria2-session-identity-recovery.integration.test.ts
           src/core/engine/aria2/aria2-parent-lifecycle.integration.test.ts
           src/core/legacy-import/http-activation.integration.test.ts
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts

@@ -37,6 +37,24 @@ function actions(
 }
 
 describe('createServerShutdown', () => {
+  it('releases native process ownership only after persistent state has drained', async () => {
+    const order: string[] = []
+    const shutdown = createServerShutdown(
+      actions(order, {
+        releaseProcessOwnership: async () => {
+          order.push('release-ownership')
+        },
+      }),
+      vi.fn()
+    )
+    await shutdown()
+    expect(order.at(-1)).toBe('release-ownership')
+    expect(order.indexOf('release-ownership')).toBeGreaterThan(
+      order.indexOf('close-database')
+    )
+    await shutdown()
+    expect(order.filter((step) => step === 'release-ownership')).toHaveLength(1)
+  })
   it('drains media cancellation before stopping engine RPC and Session writes', async () => {
     const order: string[] = []
     let release!: () => void
@@ -362,8 +380,16 @@ describe('server lifecycle production wiring', () => {
       'const discoveredTask: DownloadTask =',
       handler
     )
-    const parentBarrier = source.indexOf(
+    const createParent = source.indexOf('const createParent =')
+    const activityBarrier = source.indexOf(
       'taskInspectorActivityRuntime.parentTaskCreated(',
+      createParent
+    )
+    expect(createParent).toBeGreaterThan(-1)
+    expect(activityBarrier).toBeGreaterThan(createParent)
+    expect(activityBarrier).toBeLessThan(handler)
+    const parentBarrier = source.indexOf(
+      'await createParent(discoveredTask',
       discoveredTask
     )
     const persistParent = source.indexOf(
@@ -417,6 +443,11 @@ describe('server lifecycle production wiring', () => {
     )
     const shutdown = source.indexOf('const shutdown = createServerShutdown(')
     const signalOwner = source.indexOf('requestActiveServerExit = requestExit')
+    const recovery = source.indexOf('const recoveryApp = await createApp(')
+    const recoveryClose = source.indexOf(
+      'shutdownActions.closeIngress = () => recoveryApp.close()'
+    )
+    const recoveryListen = source.indexOf('await listenSynology(recoveryApp,')
     const database = source.indexOf('db.init()')
     const app = source.indexOf('const app = await createApp(')
     const producers = source.indexOf("runShellAsyncWork('tracker manager init'")
@@ -424,7 +455,10 @@ describe('server lifecycle production wiring', () => {
 
     expect(shutdown).toBeGreaterThan(-1)
     expect(signalOwner).toBeGreaterThan(shutdown)
-    expect(database).toBeGreaterThan(signalOwner)
+    expect(recovery).toBeGreaterThan(signalOwner)
+    expect(recoveryClose).toBeGreaterThan(recovery)
+    expect(recoveryListen).toBeGreaterThan(recoveryClose)
+    expect(database).toBeGreaterThan(recoveryListen)
     expect(app).toBeGreaterThan(database)
     expect(producers).toBeGreaterThan(shutdown)
     expect(listen).toBeGreaterThan(producers)
@@ -438,7 +472,7 @@ describe('server lifecycle production wiring', () => {
     const listen = source.indexOf('await app.listen({ port')
     const serverUrl = source
       .slice(listen)
-      .search(/const serverUrl = `http:\/\/localhost:\$\{port\}`/)
+      .search(/: `http:\/\/localhost:\$\{port\}`/)
     const listeningLog = source
       .slice(listen)
       .search(

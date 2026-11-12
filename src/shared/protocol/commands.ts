@@ -1,4 +1,5 @@
 export const Commands = {
+  SaveNasSettings: 'command:saveNasSettings',
   AcknowledgeGraphicsRecoveryNotice:
     'command:acknowledgeGraphicsRecoveryNotice',
   ExecuteRendererSubmission: 'command:executeRendererSubmission',
@@ -114,6 +115,10 @@ export const Commands = {
   RunNatDiagnostic: 'command:runNatDiagnostic',
   ForceRemapNat: 'command:forceRemapNat',
   ExportNatBundle: 'command:exportNatBundle',
+  // Desktop torrent creator
+  CreateTorrent: 'command:createTorrent',
+  PickTorrentSource: 'command:pickTorrentSource',
+  SaveTorrentFile: 'command:saveTorrentFile',
   // App auto-update
   CheckForUpdates: 'command:checkForUpdates',
   DownloadUpdate: 'command:downloadUpdate',

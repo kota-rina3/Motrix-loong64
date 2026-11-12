@@ -211,7 +211,7 @@ describe('OverviewTab', () => {
       ).not.toBeInTheDocument()
     })
 
-    it('offers a request form for an HTTP error without replay credentials', () => {
+    it('offers a request form for an HTTP error without replay credentials', async () => {
       useRetryParametersStore.getState().close()
       renderOverviewTab({
         ...task,
@@ -222,7 +222,7 @@ describe('OverviewTab', () => {
         uris: ['https://example.com/x'],
         errorCode: DownloadErrorCode.NetworkError,
       })
-      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
       expect(useRetryParametersStore.getState().targets[0]?.id).toBe(
         'http-error'
       )
@@ -247,6 +247,30 @@ describe('OverviewTab', () => {
       expect(transport.invoke).toHaveBeenCalledWith(Commands.RetryTasks, [
         'bt-error',
       ])
+    })
+
+    it('submits the publisher digest only with the quarantined task retry', async () => {
+      renderOverviewTab({
+        ...task,
+        id: 'quarantined',
+        status: TaskStatus.Error,
+        type: TaskType.Http,
+        kind: TaskKind.Direct,
+        transitionPhase: TransitionPhase.Renaming,
+        errorDetailKey: 'task.error.detail.sourceHash',
+      })
+      const input = screen.getByRole('textbox')
+      const retry = screen.getByRole('button', { name: 'Retry' })
+      expect(retry).toBeDisabled()
+      fireEvent.change(input, { target: { value: 'abc' } })
+      expect(retry).toBeDisabled()
+      const digest = 'ac'.repeat(32)
+      fireEvent.change(input, { target: { value: digest } })
+      await userEvent.click(retry)
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.ReAddTask, {
+        taskId: 'quarantined',
+        sha256: digest,
+      })
     })
 
     it('adds Retry to the timeout Alert for unresolved magnet metadata', () => {

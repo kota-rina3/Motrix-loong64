@@ -89,6 +89,7 @@ import type { CommandHandlerMap } from '@shared/protocol/handler-types'
 import { taskCreateRequestSchema } from '@shared/schemas/add-task'
 import { btStorageRequestSchema } from '@shared/schemas/bt-storage'
 import {
+  reAddTaskPayloadSchema,
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
@@ -110,13 +111,24 @@ import { canRetryMagnetMetadata } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import { z } from 'zod'
+import type { ServerUpdateService } from '../app-update-service'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
+import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import type { ServerPluginInstallService } from '../plugin/install-service'
+import { installServerFfmpeg } from '../plugin/verified-ffmpeg-server'
 import type { createServerProxyApplier } from '../proxy/wiring'
 import type { ServerDirectoryService } from '../server-directory-service'
 import { unsupportedLegacyImportCommands } from './legacy-import'
 
 export interface ServerCommandContext {
+  updateService: Pick<ServerUpdateService, 'check' | 'setChannel'>
+  userDataDir: string
+  trackAsyncWork?: <T>(operation: () => Promise<T>) => Promise<T>
+  authorizeTaskWrite?: (task: DownloadTask) => Promise<void>
+  authorizeTaskRemoval?: (task: DownloadTask) => Promise<void>
+  authorizeOutputWrite?: (output: string) => Promise<void>
+  authorizeRecheck?: (task: DownloadTask) => Promise<void>
+  prepareStorageBinding?: import('@core/task/bt-storage-service').BtStorageServiceDeps['prepareStorageBinding']
   btStorageRuntime?: Pick<
     DurableFinalizeRuntime,
     'commit' | 'withArtifactLease' | 'hasPendingFinalization'
@@ -139,7 +151,7 @@ export interface ServerCommandContext {
    * paths cannot drift. Called synchronously during handler construction.
    */
   bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
-  recoverFinalization?: (taskId: string) => Promise<void>
+  recoverFinalization?: (taskId: string, sha256?: string) => Promise<void>
   rpcClient: Aria2RpcClient
   adapter: EngineAdapter
   trackerManager: TrackerManager
@@ -155,6 +167,7 @@ export interface ServerCommandContext {
   torrentMetaStore: TorrentMetaStore
   taskManager: TaskManager
   fileCleanupService: FileCleanupService
+  fileCleanupForTask?: (task: DownloadTask) => FileCleanupService
   eventBus: EventBus
   proxyApplier: ReturnType<typeof createServerProxyApplier>
   appliedDownloadProxyPolicy: AppliedDownloadProxyPolicy
@@ -311,6 +324,7 @@ export function buildServerCommandHandlers(
   // Shared by the singular AND plural task command handlers below — one
   // deps bundle per action family so the two arities cannot drift.
   const pauseResumeDeps = {
+    authorizeTaskWrite: ctx.authorizeTaskWrite,
     getMediaSegmentGids: ctx.getMediaSegmentGids,
     onPauseRequested: (taskId: string) =>
       trackerManager.noteTaskControl?.(taskId, true),
@@ -342,6 +356,8 @@ export function buildServerCommandHandlers(
     publishTaskUpdateNow,
   }
   const reAddDeps = {
+    authorizeTaskWrite: ctx.authorizeTaskWrite,
+    authorizeTaskRemoval: ctx.authorizeTaskRemoval,
     recoverFinalization: ctx.recoverFinalization,
     taskManager,
     adapter,
@@ -367,12 +383,14 @@ export function buildServerCommandHandlers(
   const btStorage =
     ctx.btStorageRuntime && ctx.persistBtStorage
       ? new BtStorageService({
+          authorizeOutputWrite: ctx.authorizeOutputWrite,
+          prepareStorageBinding: ctx.prepareStorageBinding,
+          authorizeRecheck: ctx.authorizeRecheck,
           ...reAddDeps,
           runtime: ctx.btStorageRuntime,
           persistStorage: ctx.persistBtStorage,
           authorizeDirectory: async (directory: string) =>
-            (await downloadPathPolicy.authorizeDirectory(directory))
-              .canonicalPath,
+            downloadPathPolicy.prepareSaveDir(directory),
         })
       : null
   createDeps.reuseExistingBt = (taskId) => reAddTask(taskId, reAddDeps)
@@ -402,6 +420,8 @@ export function buildServerCommandHandlers(
   // Commands.ReAddTasks so the automatic and user-initiated paths match.
   bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
   const removeDeps = {
+    authorizeTaskRemoval: ctx.authorizeTaskRemoval,
+    fileCleanupForTask: ctx.fileCleanupForTask,
     cancelMedia: ctx.cancelMedia,
     taskManager,
     adapter,
@@ -460,9 +480,39 @@ export function buildServerCommandHandlers(
       z.undefined().parse(payload)
       return false
     },
+    [Commands.CheckForUpdates]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      const operation = () => ctx.updateService.check()
+      await (ctx.trackAsyncWork ? ctx.trackAsyncWork(operation) : operation())
+      return { ok: true }
+    },
+    [Commands.DownloadUpdate]: async () => {
+      throw new AppError(
+        ErrorCode.AppUpdateManaged,
+        'settings.about.webVersionNote'
+      )
+    },
+    [Commands.InstallUpdate]: async () => {
+      throw new AppError(
+        ErrorCode.AppUpdateManaged,
+        'settings.about.webVersionNote'
+      )
+    },
     [Commands.InstallFfmpeg]: async (payload: unknown) => {
       z.undefined().parse(payload)
-      return { ok: false, error: 'unsupported' }
+      const operation = async () => {
+        const result = await installServerFfmpeg(ctx.userDataDir, (status) =>
+          eventBus.emit(Events.FfmpegInstallStatusChanged, status)
+        )
+        if (result.ok) {
+          // Detection failure must not overwrite an already committed install.
+          await capabilityHost.ffmpeg
+            .refreshDetection(makeServerFfmpegDetect(ctx))
+            .catch(() => {})
+        }
+        return result
+      }
+      return ctx.trackAsyncWork ? ctx.trackAsyncWork(operation) : operation()
     },
     [Commands.CreateServerDirectory]: async (request: unknown) =>
       ctx.serverDirectoryService.create(request),
@@ -743,6 +793,7 @@ export function buildServerCommandHandlers(
         await runBulkTaskAction(taskIds, reAddDeps, async (id) => {
           const task = taskManager.getById(id)
           if (task && canRetryMagnetMetadata(task)) {
+            await ctx.authorizeTaskWrite?.(task)
             await magnetTracker.retryMetadata(id)
             return
           }
@@ -766,8 +817,9 @@ export function buildServerCommandHandlers(
       return { ok: true }
     },
 
-    [Commands.ReAddTask]: async (taskId: string) => {
-      await reAddTask(taskId, reAddDeps)
+    [Commands.ReAddTask]: async (rawPayload: unknown) => {
+      const { taskId, sha256 } = reAddTaskPayloadSchema.parse(rawPayload)
+      await reAddTask(taskId, reAddDeps, sha256)
       return { ok: true }
     },
 
@@ -779,6 +831,7 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.SetSelectedFiles]: createSetSelectedFilesHandler({
+      authorizeTaskWrite: ctx.authorizeTaskWrite,
       taskManager,
       engine: adapter,
       db: motrixDatabase,
@@ -909,6 +962,10 @@ export function buildServerCommandHandlers(
 
           if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
             await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
+          }
+
+          if (oldFull.app.updateChannel !== newFull.app.updateChannel) {
+            ctx.updateService.setChannel(settingsManager.getApp().updateChannel)
           }
 
           if (

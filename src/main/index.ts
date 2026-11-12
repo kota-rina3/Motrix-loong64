@@ -752,9 +752,9 @@ function dispatchWhenReady(
   payload: unknown,
   resolvePayload?: () => unknown
 ) {
-  const id = (['main', 'add-task', 'onboarding'] as const).find(
-    (id) => windowManager?.get(id) === win
-  )
+  const id = (
+    ['main', 'add-task', 'onboarding', 'create-torrent'] as const
+  ).find((id) => windowManager?.get(id) === win)
   if (!id || win.isDestroyed()) return
   if (rendererRecovery?.intents.deliver(id, channel, payload, resolvePayload))
     return
@@ -1012,7 +1012,12 @@ async function handlePolledTasks(
           }
           if (
             !hasLegacyImport(existing) &&
-            shouldEvictFromEngine(existing.status, merged.status, existing.type)
+            shouldEvictFromEngine(
+              existing.status,
+              merged.status,
+              existing.type,
+              existing
+            )
           ) {
             // Either BT/Magnet seeding just satisfied its ratio/time target,
             // or the task just landed in Error (see shouldEvictFromEngine).
@@ -1463,7 +1468,8 @@ async function startEngineAndRestore(
         listActiveAndWaiting: () => adapter.listActiveAndWaiting(),
       },
       fs: defaultRecoveryFs,
-      finalizeTask: (taskId) => finalizeTask(taskId, finalizeDepsFactory()),
+      finalizeTask: (taskId, recoverySha256) =>
+        finalizeTask(taskId, { ...finalizeDepsFactory(), recoverySha256 }),
       activityRecorder: requireTaskActivityService(),
       recordTransition: (input: RuntimeTransitionInput) =>
         taskInspectorActivityRuntime?.recordTransition(input),
@@ -1858,7 +1864,7 @@ async function initializeMainProcess(): Promise<void> {
     getMainWindow: () => windowManager?.get('main') ?? null,
     showMainWindow: () => windowManager?.show('main'),
     getAppSettings: () => settingsManager.getApp(),
-    translate: i18n.t.bind(i18n),
+    translate: (key, params = {}) => i18n.t(key, params),
     getTaskStatus: (taskId) => taskManager.getById(taskId)?.status ?? null,
     navigateToTask,
     navigateToDownloads: () => {
@@ -2344,6 +2350,9 @@ async function initializeMainProcess(): Promise<void> {
       activeTaskInspectorActivityRuntime.runTaskMutation(ids, operation),
     log,
   })
+  supervisor.setSessionRecoveryStore(
+    sessionManager.getEngineSessionRecoveryStore()
+  )
   supervisor.setStartupGuard(
     new CompletedTaskStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
@@ -3044,10 +3053,10 @@ async function initializeMainProcess(): Promise<void> {
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
     },
-    recoverFinalization: async (taskId) => {
+    recoverFinalization: async (taskId, sha256) => {
       if (!recoveryService) throw new Error('Task recovery is not ready')
       try {
-        const report = await recoveryService.recoverTaskById(taskId)
+        const report = await recoveryService.recoverTaskById(taskId, sha256)
         if (report.errors.length > 0) throw new Error(report.errors[0].issue)
       } finally {
         publishTaskUpdateNow()
@@ -3176,7 +3185,7 @@ async function initializeMainProcess(): Promise<void> {
     },
     broadcast: (state) =>
       windowManager.broadcast(Events.CompletionShutdownChanged, state),
-    translate: (key, params) => i18n.t(key, params),
+    translate: (key, params = {}) => i18n.t(key, params),
     logError: (err) => log.warn({ err }, 'completion shutdown failed'),
   })
   disposeIpcIngress = () => {

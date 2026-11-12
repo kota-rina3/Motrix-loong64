@@ -404,7 +404,9 @@
     "help": "يتطلب هذا الخادم رمز المشغّل. اضبط MOTRIX_OPERATOR_TOKEN على المضيف، أو اقرأ الرمز من <dataDir>/operator-token، ثم الصقه أدناه.",
     "placeholder": "رمز المشغّل",
     "submit": "فتح القفل",
-    "title": "فتح قفل Motrix"
+    "title": "فتح قفل Motrix",
+    "nasSessionExpired": "تعذر التحقق من جلسة مسؤول NAS. افتح Motrix من سطح مكتب NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "panel": {
     "completed": {
@@ -434,7 +436,7 @@
         "more": "أكثر",
         "rangeSummary": "نشاط التنزيل من {{start}} إلى {{end}}؛ عدد الأسابيع: {{weeks}}",
         "retry": "إعادة المحاولة",
-        "stale": "قد تكون بيانات النشاط قديمة",
+        "refreshFailed": "تعذّر التحديث",
         "title": "النشاط",
         "tooltip": {
           "completed": "المكتمل: {{count}}",
@@ -917,7 +919,11 @@
         "redownloadStarted": "Re-download started",
         "retryDialogTitle": "إعادة محاولة التنزيل",
         "retryDialogDescription": "عدّل معلمات طلب {{name}} لبدء تنزيل جديد. ستُحفظ المهمة الفاشلة وملفها الجزئي.",
-        "retryDialogProgress": "التنزيل {{current}} من {{total}}"
+        "retryDialogProgress": "التنزيل {{current}} من {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "column": {
         "connections": "الاتصالات",
@@ -2117,6 +2123,10 @@
       "network": {
         "desc": "الوكيل وDNS وNAT/UPnP",
         "title": "الشبكة"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "common": {
@@ -2388,6 +2398,12 @@
       "warnBeforeQuitDesc": "السؤال قبل الخروج إذا كانت التنزيلات لا تزال جارية."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "سجّل AppImage Motrix هذا في سطح المكتب لتتمكن المتصفحات وروابط magnet من تمرير التنزيلات إليه.",
         "enable": "تفعيل التكامل مع سطح المكتب",
@@ -2472,7 +2488,10 @@
           "identityUnverifiedWarning": "تعذّر التحقق من هوية هذا الامتداد. تابع فقط إذا كنت تثق به.",
           "pairCode": "رمز الاقتران",
           "pairCodeHint": "أدخل هذا الرمز في الامتداد",
-          "title": "يريد امتداد {{browser}} الاتصال بـ Motrix"
+          "title": "يريد امتداد {{browser}} الاتصال بـ Motrix",
+          "claim": "الاقتران بالحساب الحالي",
+          "claimDesc": "ستستخدم الإضافة صلاحيات هذا الحساب. بعد ذلك، أدخل رمز الاقتران في الإضافة لإكمال العملية.",
+          "account": "الحساب الحالي: {{name}}"
         },
         "pairUnavailable": "لم يعد طلب الاقتران هذا معلّقًا — أعد محاولة الاقتران من امتداد المتصفح.",
         "pairedEmpty": "لا توجد امتدادات متصلة بعد.",
@@ -2480,6 +2499,8 @@
         "connected": "متصل",
         "disconnected": "غير متصل",
         "revokeAll": "قطع اتصال الكل",
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "الامتدادات المتصلة",
         "pairingStateDegraded": {
           "description": "تعذّر على Motrix تحديث سجلات الامتدادات المقترنة بأمان. أُغلقت جلسات الامتدادات الحالية وحُظر الوصول الجديد خلال هذا التشغيل. أعد تشغيل Motrix لإعادة محاولة الإصلاح؛ لا تعتمد على القائمة أدناه حتى تختفي هذه الرسالة.",
@@ -2670,7 +2691,8 @@
           "missing": "غير موجود",
           "unconfigured": "غير معيّن",
           "untrusted": "محظور بواسطة macOS",
-          "version_mismatch": "غير مدعوم"
+          "version_mismatch": "غير مدعوم",
+          "verificationUnavailable": "التحقق غير متاح"
         },
         "title": "أدوات الوسائط",
         "validation": {
@@ -2838,6 +2860,37 @@
       "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
       "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
       "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "task": {
@@ -2877,7 +2930,7 @@
         "title": "هذا التورنت موجود بالفعل"
       },
       "errors": {
-        "headerNameRequired": "أدخل اسم الترويسة أو أزل هذه الترويسة.",
+        "headerNameRequired": "أدخل اسمًا لكل ترويسة لها قيمة.",
         "missingSource": "يلزم ملف تورنت أو رابط magnet",
         "noFilesSelected": "حدد ملفًا واحدًا على الأقل",
         "saveDirRequired": "يلزم تحديد مجلد الحفظ",
@@ -2956,7 +3009,8 @@
       "urlsLabel": "عناوين URL",
       "urlsWithInvalid": "الصالح: {{valid}}، غير الصالح: {{invalid}}",
       "userAgent": "User-Agent",
-      "validUrlCount": "الصالح: {{count}}"
+      "validUrlCount": "الصالح: {{count}}",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "الأقران: {{count}}",
@@ -2973,6 +3027,7 @@
         "recoveryFailed": "تعذّرت استعادة التنزيل: {{cause}}",
         "recoveryOutputConflict": "يوجد الملف المؤقت والنهائي معًا؛ حُفظ كلاهما للمراجعة اليدوية",
         "renameDirFailed": "تعذّرت إعادة تسمية المجلد: {{cause}}",
+        "sourceHash": "SHA-256 من الناشر",
         "renameFileFailed": "تعذّرت إعادة تسمية الملف: {{cause}}"
       },
       "hint": {
@@ -3557,5 +3612,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "إنشاء تورنت",
+    "source": "المحتوى المراد مشاركته",
+    "options": "خيارات التورنت",
+    "trackers": "المتتبعات",
+    "trackersPlaceholder": "رابط announce واحد لكل سطر",
+    "webSeeds": "البذور الشبكية",
+    "webSeedsPlaceholder": "رابط HTTP(S) واحد لكل سطر (اختياري)",
+    "comment": "تعليق",
+    "private": "تورنت خاص",
+    "privateDesc": "يعطّل DHT وتبادل الأقران؛ التوزيع عبر المتتبعات فقط.",
+    "pieceLength": "حجم القطعة",
+    "pieceAuto": "تلقائي",
+    "hashing": "جارٍ حساب البصمات…",
+    "resultName": "الاسم",
+    "resultSize": "الحجم",
+    "resultInfoHash": "بصمة info",
+    "saveFile": "حفظ .torrent",
+    "create": "إنشاء",
+    "savedToast": "تم حفظ التورنت في {{path}}",
+    "createFailed": "تعذّر إنشاء التورنت",
+    "saveFailed": "تعذّر حفظ ملف التورنت",
+    "seedAfter": "بدء البذر بعد الحفظ",
+    "seedFailed": "تعذّر بدء البذر.",
+    "seedSubmitted": "أُرسلت مهمة البذر.",
+    "invalidOptions": "كل قائمة تقبل حتى {{limit}} عنوانًا صالحًا. يحتاج التورنت الخاص إلى متتبّع.",
+    "menuLabel": "إنشاء ملف تورنت…",
+    "downloadRequested": "طُلب تنزيل {{path}}"
   }
 }

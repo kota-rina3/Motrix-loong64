@@ -1,5 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
-import type { OperatorStatus } from '@shared/schemas/operator-auth'
+import type {
+  ClientPairingCapabilities,
+  OperatorStatus,
+} from '@shared/schemas/operator-auth'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
 /**
@@ -25,6 +28,7 @@ const LOGIN_WINDOW_MS = 60_000
 const LOGIN_MAX = 20
 
 export interface OperatorAuthOptions {
+  clientPairing?: ClientPairingCapabilities
   /**
    * The operator (machine-owner) secret that authorizes the control plane.
    * Provisioned INDEPENDENTLY of the bridge (Spec 9 / F1) — it is NOT the agent
@@ -170,8 +174,9 @@ function isPublic(method: string, url: string): boolean {
   return false
 }
 
-interface SessionSocket {
+export interface SessionSocket {
   close(code: number, reason: string): void
+  send(data: string, callback: (error?: Error) => void): void
 }
 
 export interface OperatorSessionPolicy {
@@ -316,6 +321,9 @@ export function registerOperatorAuth(
       authed: mode !== null,
       mode: mode ?? 'unauthenticated',
       canLogout: mode === 'cookie',
+      ...(mode !== null && opts.clientPairing
+        ? { clientPairing: opts.clientPairing }
+        : {}),
       // Diagnostic only: this caller-supplied header never authorizes a request.
       ...(mode !== null && typeof browserOrigin === 'string'
         ? {
